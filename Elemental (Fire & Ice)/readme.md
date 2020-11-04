@@ -1,5 +1,9 @@
 # [ZP] Extra Item: Elemental [Fire & Ice]
 
+## Download Link
+- Main Link: https://forums.alliedmods.net/showthread.php?t=241102
+- Resources: https://github.com/PerfectScrash/ZP-Extra-Itens/raw/main/Elemental%20(Fire%20%26%20Ice)/resources.zip
+
 ## Description:
 Take shots of fire & ice against zombies
 
