@@ -1,6 +1,8 @@
 # [ZP] Extra Item: Uganda Knuckles Gun
 
-## Download Resources: https://github.com/PerfectScrash/ZP-Extra-Itens/raw/main/Uganda%20Knuckles%20Gun/resources.zip
+## Download
+- Resources: https://github.com/PerfectScrash/ZP-Extra-Itens/raw/main/Uganda%20Knuckles%20Gun/resources.zip
+- SMA: https://github.com/PerfectScrash/ZP-Extra-Itens/blob/main/Uganda%20Knuckles%20Gun/zp_extra_uganda_knuckles.sma
 
 ## Description:
   Basing on Memes, this weapon you can shoot rings against zombies using a uganda knuckles gun;
