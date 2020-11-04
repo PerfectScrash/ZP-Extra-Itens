@@ -12,8 +12,8 @@
 ## Change log:
 
 **1.0:**
-	- First Release
+- First Release
 
 **1.1:**
-	- Fixed Error logs
-	- Added Version for Zombie Plague Special
+- Fixed Error logs
+- Added Version for Zombie Plague Special
