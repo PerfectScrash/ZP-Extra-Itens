@@ -26,6 +26,7 @@ new EL_V_MODEL[64] = "models/zombie_plague/v_Elemental.mdl"
 new EL_P_MODEL[64] = "models/zombie_plague/p_Elemental.mdl"
 new EL_W_MODEL[64] = "models/zombie_plague/w_Elemental.mdl"
 new EL_OLD_W_MODEL[64] = "models/w_elite.mdl"
+const Weapon_Key = 324584
 
 new cvar_custommodel, cvar_tracer, cvar_uclip, cvar_fr_duration, cvar_f_duration, cvar_oneround, cvar_dmgmultiplier, cvar_limit
 new g_itemid, g_elemental[33], g_zoom[33], bullets[33], tracer_spr, g_buy_limit
@@ -58,7 +59,7 @@ public plugin_init()
 	g_itemid = zp_register_extra_item(ITEM_NAME, ITEM_COST, ZP_TEAM_HUMAN)
 	
 	// Death Msg
-	register_event("CurWeapon", "event_CurWeapon", "b", "1=1") 
+	// register_event("CurWeapon", "event_CurWeapon", "b", "1=1") 
 	register_message(get_user_msgid("CurWeapon"), "message_cur_weapon")
 	register_event("HLTV", "event_round_start", "a", "1=0", "2=0")
 	register_event("CurWeapon", "make_tracer", "be", "1=1", "3>0")
@@ -104,22 +105,26 @@ public zp_user_humanized_post(id) g_elemental[id] = false;
 public event_round_start() 
 {
 	g_buy_limit = 0
-	
-	if(get_pcvar_num(cvar_oneround))
-	{
-		for(new id = 1; id <= MaxClients; id++) 
+	if(get_pcvar_num(cvar_oneround)) {
+		static id;
+		for(id = 1; id <= MaxClients; id++) 
 			g_elemental[id] = false
 	}		
 }
 
 /*----------------------------------------=[Custom Model]=-------------------------------------------*/
-public event_CurWeapon(id)
+public zp_fw_deploy_weapon(id, wpnid)
 {
-	if (!is_user_valid_alive(id) || zp_get_user_zombie(id)) return PLUGIN_HANDLED
+	if (!is_user_valid_alive(id)) 
+		return PLUGIN_CONTINUE;
+
+	if(!g_elemental[id])
+		return PLUGIN_CONTINUE
+
+	if(zp_get_user_zombie(id) || !get_pcvar_num(cvar_custommodel))
+		return PLUGIN_CONTINUE
 	
-	new g_Weapon = read_data(2)
-	if (g_Weapon == CSW_ELITE && g_elemental[id] && get_pcvar_num(cvar_custommodel))
-	{
+	if (wpnid == CSW_ELITE) {
 		set_pev(id, pev_viewmodel2, EL_V_MODEL)
 		set_pev(id, pev_weaponmodel2, EL_P_MODEL)
 	}
@@ -177,7 +182,7 @@ public fw_SetModel(entity, model[])
 	if(g_elemental[owner] && pev_valid(wpn))
 	{
 		g_elemental[owner] = false
-		set_pev(wpn, pev_impulse, 324584)
+		set_pev(wpn, pev_impulse, Weapon_Key)
 		engfunc(EngFunc_SetModel, entity, EL_W_MODEL)
 		
 		return FMRES_SUPERCEDE
@@ -187,7 +192,7 @@ public fw_SetModel(entity, model[])
 
 public fw_AddToPlayer(wpn, id)
 {
-	if(pev_valid(wpn) && is_user_connected(id) && pev(wpn, pev_impulse) == 324584)
+	if(pev_valid(wpn) && is_user_connected(id) && pev(wpn, pev_impulse) == Weapon_Key)
 	{
 		g_elemental[id] = true
 		set_pev(wpn, pev_impulse, 0)
@@ -202,7 +207,7 @@ public fw_TakeDamage(victim, inflictor, attacker, Float:damage)
 	if(!is_user_valid_alive(attacker) || !is_user_valid_alive(victim))
 		return HAM_IGNORED;
 
-	if(zp_get_user_zombie(attacker) || !g_elemental[attacker] || zp_get_user_zombie(victim))
+	if(zp_get_user_zombie(attacker) || !g_elemental[attacker] || !zp_get_user_zombie(victim))
 		return HAM_IGNORED
 	
 	if(get_user_weapon(attacker) != CSW_ELITE)
@@ -269,8 +274,8 @@ public make_tracer(id)
 		static iVictim, iDummy
 		get_user_aiming(id, iVictim, iDummy, 9999);
 		
-		if(is_user_valid_alive(iVictim)) {
-			if ((bullets[id] > clip) && (wpnid == CSW_ELITE) && g_elemental[id] && !zp_get_user_zombie(iVictim))
+		if(!is_user_valid_alive(iVictim)) {
+			if ((bullets[id] > clip) && (wpnid == CSW_ELITE) && g_elemental[id])
 			{
 				new vec1[3], vec2[3], rgb[3]
 				get_user_origin(id, vec1, 1) // origin; your camera point.
@@ -343,7 +348,7 @@ public zp_extra_item_selected(player, itemid)
 	zp_drop_weapons(player, WPN_SECONDARY)
 	g_elemental[player] = true
 	client_print_color(player, print_team_default, "^4[ZP]^1 You Bought the ^3Elemental ^4[Fire & Ice]")
-	zp_give_item(player, "weapon_elite")
+	zp_give_item(player, "weapon_elite", 1)
 	g_buy_limit++
 }
 
