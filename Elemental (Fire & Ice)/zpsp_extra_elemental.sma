@@ -16,6 +16,10 @@
 #include <hamsandwich>
 #include <zombie_plague_special>
 
+#if ZPS_INC_VERSION < 45
+	#assert Zombie Plague Special 4.5 Include File Required. Download Link: https://forums.alliedmods.net/showthread.php?t=260845
+#endif
+
 /*-------------------------------=[Variables, Conts, Defines & Cvars]=--------------------------------*/
 
 new EL_V_MODEL[64] = "models/zombie_plague/v_Elemental.mdl"
@@ -24,15 +28,25 @@ new EL_W_MODEL[64] = "models/zombie_plague/w_Elemental.mdl"
 new EL_OLD_W_MODEL[64] = "models/w_elite.mdl"
 
 new cvar_custommodel, cvar_tracer, cvar_uclip, cvar_fr_duration, cvar_f_duration, cvar_oneround, cvar_dmgmultiplier, cvar_limit
-new g_itemid, g_elemental[33], g_zoom[33], bullets[33], tracer_spr, g_buy_limit, g_maxplayers
+new g_itemid, g_elemental[33], g_zoom[33], bullets[33], tracer_spr, g_buy_limit
 
 const SECONDARY_BIT_SUM = (1<<CSW_USP)|(1<<CSW_DEAGLE)|(1<<CSW_GLOCK18)|(1<<CSW_P228)|(1<<CSW_ELITE)|(1<<CSW_FIVESEVEN)
 
 #define ITEM_NAME "Elemental \r[Fire & Ice]"
 #define ITEM_COST 40
 
-#define is_user_valid_alive(%1) (1 <= %1 <= g_maxplayers && is_user_alive(%1))
+// CS Offsets
+#if cellbits == 32
+const OFFSET_CLIPAMMO = 51
+#else
+const OFFSET_CLIPAMMO = 65
+#endif
+const OFFSET_LINUX_WEAPONS = 4
 
+#define is_user_valid_alive(%1) (1 <= %1 <= MaxClients && is_user_alive(%1))
+
+// Max Clip for weapons
+new const MAXCLIP[] = { -1, 13, -1, 10, 1, 7, -1, 30, 30, 1, 30, 20, 25, 30, 35, 25, 12, 20, 10, 30, 100, 8, 30, 30, 20, 2, 7, 30, 30, -1, 50 }
 /*---------------------------------------=[Plugin Register]=-----------------------------------------*/
 public plugin_init()
 {	
@@ -44,9 +58,8 @@ public plugin_init()
 	g_itemid = zp_register_extra_item(ITEM_NAME, ITEM_COST, ZP_TEAM_HUMAN)
 	
 	// Death Msg
-	register_event("DeathMsg", "Death", "a")
 	register_event("CurWeapon", "event_CurWeapon", "b", "1=1") 
-	register_event("CurWeapon","checkWeapon","be","1=1")
+	register_message(get_user_msgid("CurWeapon"), "message_cur_weapon")
 	register_event("HLTV", "event_round_start", "a", "1=0", "2=0")
 	register_event("CurWeapon", "make_tracer", "be", "1=1", "3>0")
 	
@@ -56,6 +69,7 @@ public plugin_init()
 	
 	// Ham TakeDamage
 	RegisterHam(Ham_TakeDamage, "player", "fw_TakeDamage")
+	RegisterHam(Ham_Killed, "player", "fw_PlayerKilled_Post", 1)
 	RegisterHam(Ham_Item_AddToPlayer, "weapon_elite", "fw_AddToPlayer")
 	
 	// Cvars
@@ -67,8 +81,6 @@ public plugin_init()
 	cvar_tracer = register_cvar("zp_elemental_tracers", "1")			// Tracer? (0 - Off | 1 - On)
 	cvar_oneround = register_cvar("zp_elemental_one_round", "1")		// The Elemental should be 1 round? (1 - On | 0 - Off)
 	cvar_limit = register_cvar("zp_elemental_buy_limit", "3")		// Buy Limit Per Round
-	
-	g_maxplayers = get_maxplayers()
 }
 
 /*------------------------------------------=[Precaches]=--------------------------------------------*/
@@ -84,11 +96,10 @@ public plugin_precache()
 }
 
 /*---------------------------------------=[Bug Prevention]=-----------------------------------------*/
-public client_connect(id) g_elemental[id] = false
-public client_disconnect(id) g_elemental[id] = false
-public Death() g_elemental[read_data(2)] = false
-public zp_user_infected_post(id) g_elemental[id] = false
-public zp_user_humanized_post(id) g_elemental[id] = false
+public client_disconnected(id) g_elemental[id] = false;
+public fw_PlayerKilled_Post(victim) g_elemental[victim] = false;
+public zp_user_infected_post(id) g_elemental[id] = false;
+public zp_user_humanized_post(id) g_elemental[id] = false;
 
 public event_round_start() 
 {
@@ -96,7 +107,7 @@ public event_round_start()
 	
 	if(get_pcvar_num(cvar_oneround))
 	{
-		for(new id = 1; id <= g_maxplayers; id++) 
+		for(new id = 1; id <= MaxClients; id++) 
 			g_elemental[id] = false
 	}		
 }
@@ -116,25 +127,39 @@ public event_CurWeapon(id)
 }
 
 /*----------------------------------------=[Unlimited Clip]=------------------------------------------*/
-public checkWeapon(id)
+// Unlimited clip code
+public message_cur_weapon(msg_id, msg_dest, msg_entity)
 {
-	new plrClip, plrAmmo, plrWeap[32], plrWeapId
+	if (!is_user_alive(msg_entity) || !get_pcvar_num(cvar_uclip))
+		return;
 
-	plrWeapId = get_user_weapon(id, plrClip , plrAmmo)
+	// Player doesn't have the unlimited clip upgrade
+	if (!g_elemental[msg_entity]  || get_msg_arg_int(1) != 1)
+		return;
 	
-	if (plrWeapId == CSW_ELITE && g_elemental[id]) event_CurWeapon(id)
-	else return PLUGIN_CONTINUE
+	static weapon, clip
+	weapon = get_msg_arg_int(2) // get weapon ID
+	clip = get_msg_arg_int(3) // get weapon clip
+
+	if(weapon != CSW_ELITE)
+		return;
 	
-	if (plrClip == 0 && get_pcvar_num(cvar_uclip))
+	// Unlimited Clip Ammo
+	if (MAXCLIP[weapon] > 2) // skip grenades
 	{
-		// If the user is out of ammo..
-		get_weaponname(plrWeapId, plrWeap, 31)
-		give_item(id, plrWeap)
-		engclient_cmd(id, plrWeap)  // Get the name of their weapon
-		engclient_cmd(id, plrWeap)
-		engclient_cmd(id, plrWeap)
+		set_msg_arg_int(3, get_msg_argtype(3), MAXCLIP[weapon]) // HUD should show full clip all the time
+		
+		if (clip < 2) // refill when clip is nearly empty
+		{
+			// Get the weapon entity
+			static wname[32], weapon_ent
+			get_weaponname(weapon, wname, sizeof wname - 1)
+			weapon_ent = find_ent_by_owner(-1, wname, msg_entity)
+			
+			// Set max clip on weapon
+			set_pdata_int(weapon_ent, OFFSET_CLIPAMMO, MAXCLIP[weapon], OFFSET_LINUX_WEAPONS)
+		}
 	}
-	return PLUGIN_HANDLED
 }
 
 /*-----------------------------------------=[World Model]=-------------------------------------------*/
@@ -174,40 +199,42 @@ public fw_AddToPlayer(wpn, id)
 /*-----------------------------------------=[Take Damage]=-------------------------------------------*/
 public fw_TakeDamage(victim, inflictor, attacker, Float:damage)
 {
-	if(is_user_valid_alive(attacker) && !zp_get_user_zombie(attacker) && get_user_weapon(attacker) == CSW_ELITE && g_elemental[attacker] && is_user_valid_alive(victim) && zp_get_user_zombie(victim))
-	{
-		SetHamParamFloat(4, damage * get_pcvar_float(cvar_dmgmultiplier))
-		
-		switch(random_num(1,100))
-		{
-			case 1..30: 
-			{
-				if(!zp_get_zombie_special_class(victim)) {
-					zp_set_user_frozen(victim, true)
-					set_task(get_pcvar_float(cvar_fr_duration),"removefrost",victim)
-					set_aura_effect(victim, 0, 100, 255, 50) 
-					set_user_tracer(attacker, 0, 100, 255)
-					set_user_weapon_anim(attacker, random_num(2,6))
-				}
-			}
-			case 31..100: 
-			{
-				zp_set_user_burn(victim, true)
-				set_aura_effect(victim, 255, 69, 0, 50) 
-				set_task(get_pcvar_float(cvar_f_duration),"removefire",victim)
-				set_user_tracer(attacker, 255, 69, 0)
-				set_user_weapon_anim(attacker, random_num(8,12))
-			}
-		}
+	if(!is_user_valid_alive(attacker) || !is_user_valid_alive(victim))
+		return HAM_IGNORED;
+
+	if(zp_get_user_zombie(attacker) || !g_elemental[attacker] || zp_get_user_zombie(victim))
+		return HAM_IGNORED
+	
+	if(get_user_weapon(attacker) != CSW_ELITE)
+		return HAM_IGNORED
+	
+	SetHamParamFloat(4, damage * get_pcvar_float(cvar_dmgmultiplier))
+	if(random_num(1, 100) <= 30 && !zp_get_zombie_special_class(victim)) {
+		zp_set_user_frozen(victim, SET, get_pcvar_float(cvar_fr_duration))
+		set_aura_effect(victim, 0, 100, 255, 50) 
+		set_user_tracer(attacker, 0, 100, 255)
+		set_user_weapon_anim(attacker, random_num(2, 6))
 	}
+	else {
+		zp_set_user_burn(victim, SET, get_pcvar_float(cvar_f_duration))
+		set_aura_effect(victim, 255, 69, 0, 50) 
+		set_user_tracer(attacker, 255, 69, 0)
+		set_user_weapon_anim(attacker, random_num(8, 12))
+	}
+
+	return HAM_IGNORED
 }
 
 /*-----------------------------------------=[Weapon Zoom]=-------------------------------------------*/
 public fw_CmdStart(id, uc_handle, seed)
 {
-	new szClip, szAmmo, szWeapID = get_user_weapon(id, szClip, szAmmo)
+	if(!is_user_valid_alive(id))
+		return PLUGIN_CONTINUE
 
-	if(!is_user_valid_alive(id) || zp_get_user_zombie(id) || szWeapID != CSW_ELITE && g_zoom[id]) 
+	static szClip, szAmmo, szWeapID
+	szWeapID = get_user_weapon(id, szClip, szAmmo)
+
+	if(zp_get_user_zombie(id) || szWeapID != CSW_ELITE && g_zoom[id]) 
 	{
 		g_zoom[id] = false
 		cs_set_user_zoom(id, CS_RESET_ZOOM, 0)
@@ -296,35 +323,29 @@ public set_user_tracer(id, R, G, B)
 /*----------------------------------=[Action on Choose the Item]=------------------------------------*/
 public zp_extra_item_selected_pre(player, itemid)
 {
-	if (itemid == g_itemid) 
-	{
-		new szText[16]
-		formatex(szText, charsmax(szText), "\r[%d/%d]", g_buy_limit, get_pcvar_num(cvar_limit))
-		zp_extra_item_textadd(szText)
+	if (itemid != g_itemid) 
+		return PLUGIN_CONTINUE
+	
+	zp_extra_item_textadd(fmt("\r[%d/%d]", g_buy_limit, get_pcvar_num(cvar_limit)))
 
-		if(g_elemental[player] || g_buy_limit >= get_pcvar_num(cvar_limit))
-			return ZP_PLUGIN_HANDLED
+	if(g_elemental[player] || g_buy_limit >= get_pcvar_num(cvar_limit))
+		return ZP_PLUGIN_HANDLED
 
-	}
+	
 	return PLUGIN_CONTINUE
 }
 
 public zp_extra_item_selected(player, itemid)
 {
-	if (itemid == g_itemid) 
-	{
-		drop_prim(player)
-		g_elemental[player] = true
-		client_printcolor(player,"/g[ZP]/y You Bought the /tElemental /g[Fire & Ice]")
-		give_item(player, "weapon_elite")
-		g_buy_limit++
-	}
+	if (itemid != g_itemid) 
+		return;
+	
+	zp_drop_weapons(player, WPN_SECONDARY)
+	g_elemental[player] = true
+	client_print_color(player, print_team_default, "^4[ZP]^1 You Bought the ^3Elemental ^4[Fire & Ice]")
+	zp_give_item(player, "weapon_elite")
+	g_buy_limit++
 }
-
-
-/*------------------------------------=[Remove fire/frost]=-------------------------------------*/
-public removefire(plr) zp_set_user_burn(plr, false)
-public removefrost(plr) zp_set_user_frozen(plr, false)
 
 /*--------------------------------------------=[Stocks]=---------------------------------------------*/
 stock set_aura_effect(id, r, g, b, size)
@@ -344,21 +365,6 @@ stock set_aura_effect(id, r, g, b, size)
 	write_byte(30) // vida en 0.1, 30 = 3 segundos
 	write_byte(30) // velocidad de decaimiento
 	message_end() 
-}
-
-stock drop_prim(id) 
-{
-	new weapons[32], num
-	get_user_weapons(id, weapons, num)
-	for (new i = 0; i < num; i++) 
-	{
-		if (SECONDARY_BIT_SUM & (1<<weapons[i])) 
-		{
-			static wname[32]
-			get_weaponname(weapons[i], wname, sizeof wname - 1)
-			engclient_cmd(id, "drop", wname)
-		}
-	}
 }
 
 stock find_ent_by_owner(index, const classname[], owner, jghgtype = 0) {
@@ -381,50 +387,3 @@ stock set_user_weapon_anim(id, anim)
 	write_byte(pev(id, pev_body))
 	message_end()
 }
-
-stock give_item(index, const item[]) 
-{
-	if (!equal(item, "weapon_", 7) && !equal(item, "ammo_", 5) && !equal(item, "item_", 5) && !equal(item, "tf_weapon_", 10))
-		return 0;
-
-	new ent = engfunc(EngFunc_CreateNamedEntity, engfunc(EngFunc_AllocString, item));
-	
-	if (!pev_valid(ent))
-		return 0;
-
-	new Float:origin[3];
-	pev(index, pev_origin, origin);
-	set_pev(ent, pev_origin, origin);
-	set_pev(ent, pev_spawnflags, pev(ent, pev_spawnflags) | SF_NORESPAWN);
-	dllfunc(DLLFunc_Spawn, ent);
-
-	new save = pev(ent, pev_solid);
-	dllfunc(DLLFunc_Touch, ent, index);
-	if (pev(ent, pev_solid) != save)
-		return ent;
-
-	engfunc(EngFunc_RemoveEntity, ent);
-
-	return -1;
-}
-
-stock client_printcolor(const id,const input[], any:...)
-{
-	new msg[191], players[32], count = 1; vformat(msg,190,input,3);
-	replace_all(msg,190,"/g","^4");    // green
-	replace_all(msg,190,"/y","^1");    // normal
-	replace_all(msg,190,"/t","^3");    // team
-	    
-	if (id) players[0] = id; else get_players(players,count,"ch");
-	    
-	for (new i=0;i<count;i++)
-	{
-		if (is_user_connected(players[i]))
-		{
-			message_begin(MSG_ONE_UNRELIABLE,get_user_msgid("SayText"),_,players[i]);
-			write_byte(players[i]);
-			write_string(msg);
-			message_end();
-		}
-	}
-} 
