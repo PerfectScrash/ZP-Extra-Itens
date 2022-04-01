@@ -11,6 +11,14 @@
 		- Raheem: Original version
 		- ShaunCraft15: Custom trail
 		- Perfect Scrash: Otimization and for ZPSp 4.5 version
+
+	-> Changelog:
+		- 1.0: 
+			- First Release
+		- 1.1:
+			- Fixed bug on buy frost m4a1 when you have m4a1 as primary
+			- Fixed bug on damage multi not working in special zombies
+			- Fixed Small bug on damage to frost hud
 ===============================================================================*/
 
 #include <amxmodx>
@@ -63,7 +71,7 @@ new g_iItemID, g_iHudSync, m_FrostSpr[MAX_SPRITES], cvar_dmg_frost, cvar_frost_t
 ============================================*/
 public plugin_init() {
 	// Plugin Registeration
-	register_plugin("[ZPSp] Extra Item: Frost M4A1", "1.0", "Raheem | Perf. Scrash")
+	register_plugin("[ZPSp] Extra Item: Frost M4A1", "1.1", "Raheem | Perf. Scrash")
 	
 	// Cvars
 	cvar_frost_time = register_cvar("zp_frost_m4a1_time", "2.0") // Freeze Time. It's Float you can make it 0.5
@@ -128,8 +136,8 @@ public zp_extra_item_selected(player, itemid) {
 	if(g_haveFrostWeapon[player])
 		return ZP_PLUGIN_HANDLED;
 
-	g_haveFrostWeapon[player] = true
 	zp_drop_weapons(player, WPN_TYPE);
+	g_haveFrostWeapon[player] = true
 	zp_give_item(player, WPN_ENTITY, 1)
 	client_print_color(player, print_team_grey, "^4[ZP]^3 You bought ^1%s^3 With Sucess !!!", ITEM_NAME)
 
@@ -146,22 +154,25 @@ public fw_TakeDamage(victim, inflictor, attacker, Float:damage, damage_type) {
 	if(!g_haveFrostWeapon[attacker])
 		return HAM_IGNORED;
 
-	if(zp_get_zombie_special_class(victim) || !zp_get_user_zombie(victim) || get_user_weapon(attacker) != WPN_CSW)
+	if(!zp_get_user_zombie(victim) || get_user_weapon(attacker) != WPN_CSW)
 		return HAM_IGNORED
 
 	static CvarDmgFrost; CvarDmgFrost = get_pcvar_num(cvar_dmg_frost);
 
 	damage *= get_pcvar_float(cvar_dmg_multi)
-	g_iDmg[attacker] += floatround(damage);
 	SetHamParamFloat(4, damage);
 
-	set_hudmessage(0, 50, 200, -1.0, 0.17, 0, 6.0, 0.3, 0.1, 0.2)
-	ShowSyncHudMsg(attacker, g_iHudSync, "Damage to frost: %d/%d", g_iDmg[attacker], CvarDmgFrost)
+	if(zp_get_zombie_special_class(victim))
+		return HAM_IGNORED;
 
+	g_iDmg[attacker] += floatround(damage);
 	if(g_iDmg[attacker] >= CvarDmgFrost) {
 		SetPlayerFrostEffects(victim) // Give a frost effects
 		g_iDmg[attacker] = 0
 	}
+
+	set_hudmessage(0, 50, 200, -1.0, 0.17, 0, 6.0, 0.3, 0.1, 0.2)
+	ShowSyncHudMsg(attacker, g_iHudSync, "Damage to frost: %d/%d", g_iDmg[attacker], CvarDmgFrost)
 	return HAM_IGNORED
 }
 
