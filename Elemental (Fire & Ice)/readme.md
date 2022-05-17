@@ -56,3 +56,7 @@ Take shots of fire & ice against zombies
 
 - **1.3:**
 	- Fixed Invalid player Error Log(s)
+
+- **1.4: (Only in ZPSp 4.5 at moment)**
+	- Improved Tracer System
+	- Moved takedamage functions to trace attack
