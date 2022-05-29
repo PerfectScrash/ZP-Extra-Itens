@@ -123,10 +123,10 @@ public plugin_init()
 	register_forward(FM_CmdStart, "fw_CmdStart")
 	
 	// Ham TakeDamage
-	RegisterHam(Ham_Killed, "player", "fw_PlayerKilled_Post", 1)
-	RegisterHam(Ham_Item_AddToPlayer, "weapon_elite", "fw_AddToPlayer")
+	RegisterHam(Ham_Killed, "player", "fw_PlayerKilled_Post", 1, true)
+	RegisterHam(Ham_Item_AddToPlayer, "weapon_elite", "fw_AddToPlayer", 0, true)
 	for(new i = 0; i < sizeof TracePreEntities; i++)
-		RegisterHam(Ham_TraceAttack, TracePreEntities[i], "fw_TraceAttackPre");
+		RegisterHam(Ham_TraceAttack, TracePreEntities[i], "fw_TraceAttackPre", 0, true);
 	
 	// Cvars
 	cvar_dmgmultiplier = register_cvar("zp_elemental_dmg_multiplier", "3")   // Elemental Damage Multipler
@@ -317,7 +317,8 @@ public fw_TraceAttackPre(iVictim, iAttacker, Float:fDamage, Float:fDeriction[3],
 		static Float:v_forward[3], Float:v_right[3], Float:v_up[3], Float:gun_position[3];
 
 		// Hand Position
-		query_client_cvar(iAttacker, "cl_righthand" , "get_righthand")
+		if(!is_user_bot(iAttacker))
+			query_client_cvar(iAttacker, "cl_righthand" , "get_righthand")
 
 		// Start origin
 		global_get(glb_v_forward, v_forward);
