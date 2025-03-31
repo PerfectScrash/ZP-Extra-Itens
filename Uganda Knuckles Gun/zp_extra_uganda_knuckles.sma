@@ -17,17 +17,23 @@ const OFFSET_WEAPONOWNER = 41
 const OFFSET_LINUX = 4
 const OFFSET_LINUX_WEAPONS = 4
 
-#define WEAP_LINUX_XTRA_OFF			4
+#define WEAP_LINUX_XTRA_OFF		4
 #define m_fKnown				44
-#define m_flNextPrimaryAttack 			46
-#define m_flTimeWeaponIdle			48
+#define m_flNextPrimaryAttack	46
+#define m_flTimeWeaponIdle		48
 #define m_iClip					51
 #define m_fInReload				54
-#define PLAYER_LINUX_XTRA_OFF			4
-#define m_flNextAttack				83
+#define PLAYER_LINUX_XTRA_OFF	4
+#define m_flNextAttack			83
 
 #define RELOAD_TIME 2.9
 #define write_coord_f(%1)	engfunc(EngFunc_WriteCoord,%1)
+
+#define weapon_uganda "weapon_ump45"
+#define uganda_lower "ump45"
+#define CSW_UGANDA CSW_UMP45
+#define OLD_W_MODEL "models/w_ump45.mdl"
+#define event_wpn "events/ump45.sc"
 
 const PRIMARY_WEAPONS_BIT_SUM = (1<<CSW_SCOUT)|(1<<CSW_XM1014)|(1<<CSW_MAC10)|(1<<CSW_AUG)|(1<<CSW_UMP45)|(1<<CSW_SG550)|(1<<CSW_GALIL)|(1<<CSW_FAMAS)|(1<<CSW_AWP)|(1<<CSW_MP5NAVY)|(1<<CSW_M249)|(1<<CSW_M3)|(1<<CSW_M4A1)|(1<<CSW_TMP)|(1<<CSW_G3SG1)|(1<<CSW_SG552)|(1<<CSW_AK47)|(1<<CSW_P90)
 new const WEAPONENTNAMES[][] = { "", "weapon_p228", "", "weapon_scout", "weapon_hegrenade", "weapon_xm1014", "weapon_c4", "weapon_mac10",
@@ -60,18 +66,20 @@ public plugin_init()
 	register_plugin("[ZP] Extra Item: Uganda Knuckles Gun", "1.0", "Crock / =) | Perfect Scrash")
 	register_message(get_user_msgid("DeathMsg"), "message_DeathMsg")
 	register_event("CurWeapon","CurrentWeapon","be","1=1")
-	RegisterHam(Ham_Item_AddToPlayer, "weapon_ump45", "fw_uganda_AddToPlayer")
+	RegisterHam(Ham_Item_AddToPlayer, weapon_uganda, "fw_uganda_AddToPlayer")
 	RegisterHam(Ham_Use, "func_tank", "fw_UseStationary_Post", 1)
 	RegisterHam(Ham_Use, "func_tankmortar", "fw_UseStationary_Post", 1)
 	RegisterHam(Ham_Use, "func_tankrocket", "fw_UseStationary_Post", 1)
 	RegisterHam(Ham_Use, "func_tanklaser", "fw_UseStationary_Post", 1)
+
 	for (new i = 1; i < sizeof WEAPONENTNAMES; i++)
 		if (WEAPONENTNAMES[i][0]) RegisterHam(Ham_Item_Deploy, WEAPONENTNAMES[i], "fw_Item_Deploy_Post", 1)
-	RegisterHam(Ham_Weapon_PrimaryAttack, "weapon_ump45", "fw_uganda_PrimaryAttack")
-	RegisterHam(Ham_Weapon_PrimaryAttack, "weapon_ump45", "fw_uganda_PrimaryAttack_Post", 1)
-	RegisterHam(Ham_Item_PostFrame, "weapon_ump45", "uganda_ItemPostFrame");
-	RegisterHam(Ham_Weapon_Reload, "weapon_ump45", "uganda_Reload");
-	RegisterHam(Ham_Weapon_Reload, "weapon_ump45", "uganda_Reload_Post", 1);
+
+	RegisterHam(Ham_Weapon_PrimaryAttack, weapon_uganda, "fw_uganda_PrimaryAttack")
+	RegisterHam(Ham_Weapon_PrimaryAttack, weapon_uganda, "fw_uganda_PrimaryAttack_Post", 1)
+	RegisterHam(Ham_Item_PostFrame, weapon_uganda, "uganda_ItemPostFrame");
+	RegisterHam(Ham_Weapon_Reload, weapon_uganda, "uganda_Reload");
+	RegisterHam(Ham_Weapon_Reload, weapon_uganda, "uganda_Reload_Post", 1);
 	RegisterHam(Ham_TakeDamage, "player", "fw_TakeDamage")
 	RegisterHam(Ham_TraceAttack, "player", "fw_TraceAttack")
 	register_forward(FM_SetModel, "fw_SetModel")
@@ -88,7 +96,7 @@ public plugin_init()
 	//cvar_fire_rate = register_cvar("zp_uganda_fire_rate", "0.1")
 
 	register_touch(RING_NAME, "*" ,"ring_touch" )
-	register_think(RING_NAME,"remove_ring")
+	register_think(RING_NAME, "remove_ring")
 
 	g_itemid_uganda = zp_register_extra_item("Uganda Knuckles Gun", 80, ZP_TEAM_HUMAN)
 	g_MaxPlayers = get_maxplayers()
@@ -110,7 +118,7 @@ public plugin_precache()
 
 public fwPrecacheEvent_Post(type, const name[])
 {
-	if (equal("events/ump45.sc", name))
+	if (equal(event_wpn, name))
 	{
 		g_orig_event_uganda = get_orig_retval()
 		return FMRES_HANDLED
@@ -136,16 +144,16 @@ public fw_SetModel(entity, model[])
 	
 	iOwner = entity_get_edict(entity, EV_ENT_owner)
 	
-	if(equal(model, "models/w_ump45.mdl"))
+	if(equal(model, OLD_W_MODEL))
 	{
 		static iStoredSVDID
 		
-		iStoredSVDID = find_ent_by_owner(ENG_NULLENT, "weapon_ump45", entity)
+		iStoredSVDID = find_ent_by_owner(ENG_NULLENT, weapon_uganda, entity)
 	
 		if(!is_valid_ent(iStoredSVDID))
 			return FMRES_IGNORED;
 
-		if(g_has_uganda[iOwner] && get_user_weapon(iOwner) == CSW_UMP45)
+		if(g_has_uganda[iOwner] && get_user_weapon(iOwner) == CSW_UGANDA)
 		{
 			entity_set_int(iStoredSVDID, EV_INT_WEAPONKEY, UGANDA_WPN_KEY)
 			g_has_uganda[iOwner] = false
@@ -162,11 +170,11 @@ public fw_SetModel(entity, model[])
 public give_uganda(id)
 {
 	drop_weapons(id, 1);
-	new iWep2 = fm_give_item(id,"weapon_ump45")
+	new iWep2 = fm_give_item(id,weapon_uganda)
 	if( iWep2 > 0 )
 	{
 		cs_set_weapon_ammo(iWep2, get_pcvar_num(cvar_clip_uganda))
-		cs_set_user_bpammo (id, CSW_UMP45, get_pcvar_num(cvar_uganda_ammo))
+		cs_set_user_bpammo (id, CSW_UGANDA, get_pcvar_num(cvar_uganda_ammo))
 	}
 	g_has_uganda[id] = true;
 }
@@ -234,14 +242,10 @@ public ring_touch(ptr, ptd)
 			remove_entity(ptr)
 		}
 	}
-
-	if(!is_user_alive(ptd)) 
+	else
 	{
-		if(is_valid_ent(ptr))
-		{
-			entity_set_int(ptr, EV_INT_movetype, 0)
-			entity_set_int(ptr, EV_INT_solid, SOLID_NOT)
-		}
+		entity_set_int(ptr, EV_INT_movetype, 0)
+		entity_set_int(ptr, EV_INT_solid, SOLID_NOT)
 	}
 }
 
@@ -289,7 +293,7 @@ replace_weapon_models(id, weaponid)
 {
 	switch (weaponid)
 	{
-		case CSW_UMP45:
+		case CSW_UGANDA:
 		{
 			if (zp_get_user_zombie(id) || zp_get_user_survivor(id))
 				return;
@@ -308,7 +312,7 @@ public fw_UpdateClientData_Post(Player, SendWeapons, CD_Handle)
 	if(!is_user_alive(Player))
 		return FMRES_IGNORED
 
-	if(zp_get_user_zombie(Player) || (get_user_weapon(Player) != CSW_UMP45) || !g_has_uganda[Player] || zp_get_user_survivor(Player))
+	if(zp_get_user_zombie(Player) || (get_user_weapon(Player) != CSW_UGANDA) || !g_has_uganda[Player] || zp_get_user_survivor(Player))
 		return FMRES_IGNORED
 
 	set_cd(CD_Handle, CD_flNextAttack, get_gametime() + 0.001)
@@ -320,7 +324,7 @@ public fw_TraceAttack(victim, attacker, Float:damage, Float:direction[3], traceh
 	if(!is_user_connected(attacker) || !is_user_alive(victim))
         return HAM_IGNORED
 
-	if (get_user_weapon(attacker) == CSW_UMP45 && g_has_uganda[attacker])
+	if (get_user_weapon(attacker) == CSW_UGANDA && g_has_uganda[attacker])
 		return HAM_SUPERCEDE;
 
 	return HAM_IGNORED;
@@ -333,7 +337,7 @@ public fw_uganda_PrimaryAttack(Weapon)
 	if(!is_user_alive(Player))
 		return
 	
-	if (!g_has_uganda[Player] || (get_user_weapon(Player) != CSW_UMP45) || zp_get_user_zombie(Player))
+	if (!g_has_uganda[Player] || (get_user_weapon(Player) != CSW_UGANDA) || zp_get_user_zombie(Player))
 		return;
 	
 	g_IsInPrimaryAttack = 1
@@ -374,7 +378,7 @@ public fw_uganda_PrimaryAttack_Post(Weapon)
 	if(!is_user_alive(Player)) 
 		return;
 
-	if(zp_get_user_zombie(Player) || !g_has_uganda[Player] || get_user_weapon(Player) != CSW_UMP45 || !g_clip_ammo[Player])
+	if(zp_get_user_zombie(Player) || !g_has_uganda[Player] || get_user_weapon(Player) != CSW_UGANDA || !g_clip_ammo[Player])
 		return;
 	
 	static szClip, szAmmo, Float:push[3]
@@ -398,10 +402,10 @@ public fw_TakeDamage(victim, inflictor, attacker, Float:damage)
 	if(!is_user_connected(attacker))
 		return HAM_IGNORED
 
-	if(zp_get_user_zombie(attacker) || zp_get_user_survivor(attacker) || victim == attacker)
+	if(zp_get_user_zombie(attacker) || victim == attacker)
 		return HAM_IGNORED;
 
-	if(get_user_weapon(attacker) == CSW_UMP45 && g_has_uganda[attacker] && !g_dmg[victim]) {
+	if(get_user_weapon(attacker) == CSW_UGANDA && g_has_uganda[attacker] && !g_dmg[victim]) {
 		g_dmg[victim] = 0
 		return HAM_SUPERCEDE;	
 	}	
@@ -422,7 +426,7 @@ public message_DeathMsg(msg_id, msg_dest, id)
 	if(!is_user_connected(iAttacker) || iAttacker == iVictim)
 		return PLUGIN_CONTINUE
 	
-	if(equal(szTruncatedWeapon, "ump45") && get_user_weapon(iAttacker) == CSW_UMP45)
+	if(equal(szTruncatedWeapon, uganda_lower) && get_user_weapon(iAttacker) == CSW_UGANDA)
 	{
 		if(g_has_uganda[iAttacker])
 			set_msg_arg_string(4, "Uganda_Knuckles_Gun")
@@ -435,10 +439,12 @@ public create_ring(id)
 {
 	static Float:origin[3], Float:angles[3], Float:v_forward[3], Float:v_right[3], Float:v_up[3], Float:gun_position[3], Float:player_origin[3], Float:player_view_offset[3];
 	static Float:OriginX[3] , originplayerent[3] , Float:originend[3]
-	get_user_origin(id,originplayerent,3)
+	get_user_origin(id,originplayerent, 3)
+
 	originend[0] = float(originplayerent[0])
 	originend[1] = float(originplayerent[1])
 	originend[2] = float(originplayerent[2])
+
 	pev(id, pev_v_angle, angles);
 	pev(id, pev_origin, OriginX);
 	engfunc(EngFunc_MakeVectors, angles);
@@ -468,7 +474,9 @@ public create_ring(id)
 			
 	entity_get_vector(id, EV_VEC_v_angle, Angle)
 
-	new ring = create_entity("info_target")
+	static ring
+	ring = create_entity("info_target")
+
 	entity_set_string(ring, EV_SZ_classname, RING_NAME)
 	entity_set_model(ring, RING_MODEL)
 	entity_set_origin(ring, StartOrigin)
@@ -478,22 +486,29 @@ public create_ring(id)
 	MinBox = Float:{-1.0, -1.0, -1.0}
 	MaxBox = Float:{1.0, 1.0, 1.0}
 
-	entity_set_vector(ring, EV_VEC_mins, MinBox)
-	entity_set_vector(ring, EV_VEC_maxs, MaxBox)
+	// entity_set_vector(ring, EV_VEC_mins, MinBox)
+	// entity_set_vector(ring, EV_VEC_maxs, MaxBox)
+	entity_set_size(ring, MinBox, MaxBox)
+
+	// entity_set_int(ring, EV_INT_flags, FL_MONSTER|FL_MONSTERCLIP);
+	entity_set_int(ring, EV_INT_fixangle, 1);
+	entity_set_int(ring, EV_INT_gamestate, 1);
 	
 	entity_set_int(ring, EV_INT_solid, SOLID_TRIGGER)
-	entity_set_int(ring, EV_INT_movetype, 5)
+	entity_set_int(ring, EV_INT_movetype, MOVETYPE_FLY)
 
-	entity_set_edict(ring, EV_ENT_owner , id) 
+	entity_set_edict(ring, EV_ENT_owner, id) 
 		
 	static Float:vec[3]
 	aim_at_origin(ring, originend ,vec)
 	engfunc(EngFunc_MakeVectors, vec)
+
 	global_get(glb_v_forward, vec)
 	vec[0] *= float(get_pcvar_num(cvar_uganda_speed))
 	vec[1] *= float(get_pcvar_num(cvar_uganda_speed))
 	vec[2] *= float(get_pcvar_num(cvar_uganda_speed))
-	set_pev(ring, pev_velocity, vec)
+	// set_pev(ring, pev_velocity, vec)
+	entity_set_vector(ring, EV_VEC_velocity, vec)
 
 	entity_set_float(ring, EV_FL_nextthink, get_gametime() + get_pcvar_float(cvar_uganda_life)) 
 
@@ -519,14 +534,14 @@ public uganda_ItemPostFrame(weapon_entity) {
 	if (!g_has_uganda[id])
 		return HAM_IGNORED;
 
-	if(get_user_weapon(id) != CSW_UMP45)
+	if(get_user_weapon(id) != CSW_UGANDA)
 		return HAM_IGNORED
 
 	static Float:flNextAttack, iBpAmmo, iClip, fInReload, j
 
 	flNextAttack = get_pdata_float(id, m_flNextAttack, PLAYER_LINUX_XTRA_OFF)
 
-	iBpAmmo = cs_get_user_bpammo(id, CSW_UMP45);
+	iBpAmmo = cs_get_user_bpammo(id, CSW_UGANDA);
 	iClip = get_pdata_int(weapon_entity, m_iClip, WEAP_LINUX_XTRA_OFF)
 
 	fInReload = get_pdata_int(weapon_entity, m_fInReload, WEAP_LINUX_XTRA_OFF) 
@@ -536,7 +551,7 @@ public uganda_ItemPostFrame(weapon_entity) {
 		j = min(get_pcvar_num(cvar_clip_uganda) - iClip, iBpAmmo)
 	
 		set_pdata_int(weapon_entity, m_iClip, iClip + j, WEAP_LINUX_XTRA_OFF)
-		cs_set_user_bpammo(id, CSW_UMP45, iBpAmmo-j);
+		cs_set_user_bpammo(id, CSW_UGANDA, iBpAmmo-j);
 		
 		set_pdata_int(weapon_entity, m_fInReload, 0, WEAP_LINUX_XTRA_OFF)
 		fInReload = 0
@@ -553,13 +568,13 @@ public uganda_Reload(weapon_entity) {
 	if (!g_has_uganda[id])
 		return HAM_IGNORED;
 
-	if(get_user_weapon(id) != CSW_UMP45)
+	if(get_user_weapon(id) != CSW_UGANDA)
 		return HAM_IGNORED
 
 	g_uganda_TmpClip[id] = -1;
 
 	static iBpAmmo, iClip
-	iBpAmmo = cs_get_user_bpammo(id, CSW_UMP45);
+	iBpAmmo = cs_get_user_bpammo(id, CSW_UGANDA);
 	iClip = get_pdata_int(weapon_entity, m_iClip, WEAP_LINUX_XTRA_OFF)
 
 	if (iBpAmmo <= 0)
@@ -584,7 +599,7 @@ public uganda_Reload_Post(weapon_entity) {
 	if (g_uganda_TmpClip[id] == -1)
 		return HAM_IGNORED;
 
-	if(get_user_weapon(id) != CSW_UMP45)
+	if(get_user_weapon(id) != CSW_UGANDA)
 		return HAM_IGNORED
 
 	set_pdata_int(weapon_entity, m_iClip, g_uganda_TmpClip[id], WEAP_LINUX_XTRA_OFF)
@@ -613,7 +628,25 @@ public reset_vars(id)
 	g_dmg[id] = 0
 }
 
-public remove_ring(ent) if(is_valid_ent(ent)) remove_entity(ent);
+public remove_ring(ent) {
+	if(!is_valid_ent(ent)) 
+		return FMRES_IGNORED;
+
+	if(pev(ent, pev_iuser2) != 1)
+	{
+		set_pev(ent, pev_iuser2, 1);
+		entity_set_int(ent, EV_INT_movetype, 0)
+		entity_set_int(ent, EV_INT_solid, SOLID_NOT)
+		fm_set_entity_visibility(ent, 0);
+		entity_set_float(ent, EV_FL_nextthink, get_gametime() + random_float(0.1, 10.0))
+	}
+	else {
+		remove_entity(ent);
+	}
+
+	return FMRES_IGNORED;
+
+}
 
 stock drop_weapons(id, dropwhat)
 {
